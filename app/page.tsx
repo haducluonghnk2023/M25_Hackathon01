@@ -23,10 +23,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function TableDemo() {
+  const route = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [inputEmailValue, setInputEmailValue] = useState(search || "");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [employee, setEmployee] = useState<any>([]);
-  const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [inputValue, setInputValue] = useState({
     id: Math.random() + 1,
     employeeName: "",
@@ -37,11 +43,11 @@ export default function TableDemo() {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [search]);
 
   const fetchEmployees = () => {
     axios
-      .get("http://localhost:3000/api/employees")
+      .get(`http://localhost:3000/api/employees?email_like=${search}`)
       .then((res: any) => setEmployee(res.data.employees))
       .catch((err) => console.log(err));
   };
@@ -54,7 +60,39 @@ export default function TableDemo() {
       })
       .catch((err) => console.log(err));
   };
-  const handleUpdate = () => {};
+  const handleUpdate = (employee: any) => {
+    setInputValue({
+      id: employee.id,
+      employeeName: employee.employeeName,
+      dateOfBirth: employee.dateOfBirth,
+      image: employee.image,
+      email: employee.email,
+    });
+
+    setIsEditing(true);
+    setEditingEmployeeId(employee.id);
+  };
+
+  const handleSaveUpdate = () => {
+    axios
+      .put(
+        `http://localhost:3000/api/employees/${editingEmployeeId}`,
+        inputValue
+      )
+      .then(() => {
+        fetchEmployees();
+        setInputValue({
+          id: Math.random() + 1,
+          employeeName: "",
+          dateOfBirth: "",
+          image: "",
+          email: "",
+        });
+        setIsEditing(false);
+        setEditingEmployeeId(null);
+      })
+      .catch((err) => console.log(err));
+  };
 
   const handleAdd = () => {
     axios
@@ -78,11 +116,23 @@ export default function TableDemo() {
       [event.target.id]: event.target.value,
     });
   };
+  const handleChangeName = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputEmailValue(event.target.value);
+    setSearch(event.target.value);
+    route.push(`/?search=${event.target.value}`);
+  };
 
   return (
     <div className="flex">
       <Table>
-        <TableCaption>Employee Management</TableCaption>
+        <TableCaption>
+          <input
+            type="text"
+            placeholder="tìm kiếm theo email"
+            value={inputEmailValue}
+            onChange={handleChangeName}
+          />
+        </TableCaption>
         <TableHeader>
           <TableRow>
             <TableHead>STT</TableHead>
@@ -111,7 +161,7 @@ export default function TableDemo() {
                   Xóa
                 </button>
                 <button
-                  onClick={() => handleUpdate()}
+                  onClick={() => handleUpdate(item)}
                   className="bg-green-600 rounded-lg"
                 >
                   Sửa
@@ -122,9 +172,9 @@ export default function TableDemo() {
         </TableBody>
       </Table>
       <Card className="w-[350px]">
-        <CardHeader>
-          <CardTitle>Thêm mới nhân viên</CardTitle>
-        </CardHeader>
+        <CardTitle>
+          {isEditing ? "Cập nhật nhân viên" : "Thêm mới nhân viên"}
+        </CardTitle>
         <CardContent>
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
@@ -158,9 +208,20 @@ export default function TableDemo() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="primary" onClick={handleAdd}>
-            Thêm
-          </Button>
+          {isEditing ? (
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={handleSaveUpdate}>
+                Lưu
+              </Button>
+              <Button variant="secondary" onClick={() => setIsEditing(false)}>
+                Hủy
+              </Button>
+            </div>
+          ) : (
+            <Button variant="primary" onClick={handleAdd}>
+              Thêm
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>
